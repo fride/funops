@@ -238,7 +238,7 @@ import cats.syntax.all._
 scala&gt; implicit val regionEquality = new Eq[Region] {
      |   def eqv(r1: Region, r2: Region): Boolean = r1 == r2
      | }
-regionEquality: cats.Eq[Region] = $anon$1@40ed5a7c
+regionEquality: cats.Eq[Region] = $anon$1@40fc07bd
 </code></pre>
 
 <p>It may not seem like we have accomplished much here except that when we use<br />
@@ -418,6 +418,16 @@ this? How far makes sense? Keep these questions in mind.</p>
 <p>The next tutorial in the series will walk through how we add some structure<br />
 to our types with accompanying functions with specific properties we can<br />
 use to reason about our code in more abstract ways.</p>
+
+<h2 id="acknowledgements">Acknowledgements</h2>
+
+<p>Two coworkers were kind enough to offer technical and editing advice for this<br />
+tutorial. They are:</p>
+
+<ul>
+  <li><a href="https://github.com/trane">Andrew Kuhnhausen</a></li>
+  <li><a href="https://twitter.com/petercaswell">Peter Caswell</a></li>
+</ul>
 
 </article>
 

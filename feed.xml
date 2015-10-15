@@ -6,8 +6,8 @@
     <atom:link href="http://typedops.github.io/feed.xml" rel="self" type="application/rss+xml" />
     <description>Tutorials and code experiments about using types to build better infrastructure</description>
     <language>en-us</language>
-    <pubDate>Thu, 15 Oct 2015 12:14:46 -0500</pubDate>
-    <lastBuildDate>Thu, 15 Oct 2015 12:14:46 -0500</lastBuildDate>
+    <pubDate>Thu, 15 Oct 2015 12:25:17 -0500</pubDate>
+    <lastBuildDate>Thu, 15 Oct 2015 12:25:17 -0500</lastBuildDate>
 
     
       <item>
@@ -186,7 +186,7 @@ import cats.syntax.all._
 scala&amp;gt; implicit val regionEquality = new Eq[Region] {
      |   def eqv(r1: Region, r2: Region): Boolean = r1 == r2
      | }
-regionEquality: cats.Eq[Region] = $anon$1@40ed5a7c
+regionEquality: cats.Eq[Region] = $anon$1@40fc07bd
 &lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;It may not seem like we have accomplished much here except that when we use&lt;br /&gt;
@@ -366,6 +366,16 @@ this? How far makes sense? Keep these questions in mind.&lt;/p&gt;
 &lt;p&gt;The next tutorial in the series will walk through how we add some structure&lt;br /&gt;
 to our types with accompanying functions with specific properties we can&lt;br /&gt;
 use to reason about our code in more abstract ways.&lt;/p&gt;
+
+&lt;h2 id=&quot;acknowledgements&quot;&gt;Acknowledgements&lt;/h2&gt;
+
+&lt;p&gt;Two coworkers were kind enough to offer technical and editing advice for this&lt;br /&gt;
+tutorial. They are:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/trane&quot;&gt;Andrew Kuhnhausen&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://twitter.com/petercaswell&quot;&gt;Peter Caswell&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
 </description>
       </item>
     
