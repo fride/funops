@@ -1,0 +1,374 @@
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>TypedOps</title>
+    <link>http://typedops.github.io</link>
+    <atom:link href="http://typedops.github.io/feed.xml" rel="self" type="application/rss+xml" />
+    <description>Tutorials and code experiments about using types to build better infrastructure</description>
+    <language>en-us</language>
+    <pubDate>Thu, 15 Oct 2015 12:14:46 -0500</pubDate>
+    <lastBuildDate>Thu, 15 Oct 2015 12:14:46 -0500</lastBuildDate>
+
+    
+      <item>
+        <title>Why Use Types?</title>
+        <link>http://typedops.github.io/tutorials/2015/10/09/why-use-types.html</link>
+        <pubDate>Fri, 09 Oct 2015 05:50:00 -0500</pubDate>
+        <author>Susan Potter</author>
+        <description>&lt;p&gt;Types are one of the most mainstream and widespread applied formal methods&lt;br /&gt;
+in software engineering industry today. Yet I have met many accomplished and&lt;br /&gt;
+experienced practitioners in our field who do not know how to effectively use&lt;br /&gt;
+types, even in lanuages they can leverage well for this.&lt;/p&gt;
+
+&lt;p&gt;This tutorial is an attempt to show step by step an iterative approach to&lt;br /&gt;
+transforming what I would consider an ill-typed API (a form I see very often&lt;br /&gt;
+in operations or infrastructure code) towards a more type-expressive API&lt;br /&gt;
+which eleminates a large set of invalid values from ever being constructed in&lt;br /&gt;
+the first place.&lt;/p&gt;
+
+&lt;p&gt;This will be the basis for future tutorials that will follow, putting into&lt;br /&gt;
+practice more structural typed techniques often used in typed functional&lt;br /&gt;
+programming. My claim here is that pairing a half decent type system that&lt;br /&gt;
+can express many valid constructions of values (and eliminate many invalid&lt;br /&gt;
+constructions) with functional programming principles and abstractions we can&lt;br /&gt;
+build a solid core of a working library or executable. It will allow us to&lt;br /&gt;
+reason about our code such that we can extend it in ways we previously thought&lt;br /&gt;
+unimaginable without much heavy lifting (after the initial plumbing work). We&lt;br /&gt;
+will start to see evidence for this claim in this tutorial post and subsequent&lt;br /&gt;
+tutorials will build upon this foundation to supply more evidence as we go&lt;br /&gt;
+along on our journey.&lt;/p&gt;
+
+&lt;h2 id=&quot;to-the-cloud-and-beyond&quot;&gt;To The Cloud And Beyond&lt;/h2&gt;
+
+&lt;p&gt;Let’s start out with a simple example. We need to model VPCs and Subnets in&lt;br /&gt;
+AWS:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; case class Vpc(
+     |   cidrBlock: String,
+     |   region: String,
+     |   dhcpOptionsId: String,
+     |   instanceTenancy: String,
+     |   isDefault: Boolean)
+defined class Vpc
+
+scala&amp;gt; case class Subnet(
+     |   cidrBlock: String,
+     |   vpcId: String,
+     |   availabilityZone: String,
+     |   defaultForAz: Boolean,
+     |   mapPublicOnLaunch: Boolean)
+defined class Subnet
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now let’s use these definition to construct values:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; val region = &quot;us-west-14&quot;
+region: String = us-west-14
+
+scala&amp;gt; val vpc = Vpc(&quot;10.0.0.0/16&quot;, region, null, &quot;dedicated&quot;, false)
+vpc: Vpc = Vpc(10.0.0.0/16,us-west-14,null,dedicated,false)
+
+scala&amp;gt; val subnet = Subnet(&quot;10.10.16.0/24&quot;, &quot;sg-123456&quot;, s&quot;${region}b&quot;, false, false)
+subnet: Subnet = Subnet(10.10.16.0/24,sg-123456,us-west-14b,false,false)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;There are a few problems in just this simple usage of these simple classes:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;There is no region named &lt;code&gt;us-west-14&lt;/code&gt; and the derived availability zone&lt;br /&gt;
+value is also invalid.&lt;/li&gt;
+  &lt;li&gt;A &lt;code&gt;null&lt;/code&gt; was given for &lt;code&gt;dhcpOptionsId&lt;/code&gt; argument but the behavior of various&lt;br /&gt;
+utilities using these types is unknown when this happens as we don’t know&lt;br /&gt;
+if they will actually handle &lt;code&gt;null&lt;/code&gt;’s properly with defensive programming.&lt;/li&gt;
+  &lt;li&gt;We might have fat fingered the &lt;code&gt;instanceTenancy&lt;/code&gt;, this time we didn’t, but&lt;br /&gt;
+who knows when everything is just of type &lt;code&gt;String&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;We have no idea if the given &lt;code&gt;cidr&lt;/code&gt; block arguments to either &lt;code&gt;Vpc&lt;/code&gt; or&lt;br /&gt;
+&lt;code&gt;Subnet&lt;/code&gt; are valid since we just expect a &lt;code&gt;String&lt;/code&gt; representing a CIDR.&lt;/li&gt;
+  &lt;li&gt;We have no idea if the string id for DHCP options or VPC are referring to&lt;br /&gt;
+identifiers of the right kind or not.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;We started with such a simple API and already have numerous issues with just&lt;br /&gt;
+using weak types in our data type definitions.&lt;/p&gt;
+
+&lt;p&gt;Now let’s toughen up these types.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; // We build a sum type (also called coproduct in some literature)
+     | // This is a kind of algebraic data type that represents a logical OR
+     | sealed trait Region
+defined trait Region
+
+scala&amp;gt; case object UsWest1 extends Region
+defined object UsWest1
+
+scala&amp;gt; case object UsWest2 extends Region
+defined object UsWest2
+
+scala&amp;gt; case object UsEast1 extends Region
+defined object UsEast1
+
+scala&amp;gt; case object EuWest1 extends Region
+defined object EuWest1
+
+scala&amp;gt; // Another sum type here for zone *inside* of a region
+     | sealed trait Zone
+defined trait Zone
+
+scala&amp;gt; case object A extends Zone
+defined object A
+
+scala&amp;gt; case object B extends Zone
+defined object B
+
+scala&amp;gt; case object C extends Zone
+defined object C
+
+scala&amp;gt; // This is a product type (a dressed up N-tuple)
+     | // This is another kind of algebraic data type representing logical AND
+     | case class AvailabilityZone(region: Region, zone: Zone)
+defined class AvailabilityZone
+
+scala&amp;gt; // A sum type to represent the notion of instance tenancy, I am sure I am
+     | // missing possible data constructors (the case objects/classes that extend
+     | // from the base class, in this case +InstanceTenancy+).
+     | sealed trait InstanceTenancy
+defined trait InstanceTenancy
+
+scala&amp;gt; case object Dedicated extends InstanceTenancy
+defined object Dedicated
+
+scala&amp;gt; case object Default extends InstanceTenancy
+defined object Default
+
+scala&amp;gt; case class Vpc(
+     |   cidrBlock: String,
+     |   region: Region,
+     |   dhcpOptionsId: Option[String],
+     |   instanceTenancy: InstanceTenancy,
+     |   isDefault: Boolean)
+defined class Vpc
+
+scala&amp;gt; case class Subnet(
+     |   cidrBlock: String,
+     |   vpcId: String,
+     |   availabilityZone: AvailabilityZone,
+     |   defaultForAz: Boolean,
+     |   mapPublicOnLaunch: Boolean)
+defined class Subnet
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now we have some provisioning logic that picks the appropriate AWS&lt;br /&gt;
+credentials when using specific regions vs others:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; // we are just mocking out this function for now and not *doing* anything yet
+     | def provisionVpc(vpc: Vpc): String =
+     |   if (vpc.region == &quot;us-west-1&quot;) &quot;vpc-123456&quot; else &quot;vpc-654321&quot;
+&amp;lt;console&amp;gt;:22: warning: Region and String are unrelated: they will most likely never compare equal
+         if (vpc.region == &quot;us-west-1&quot;) &quot;vpc-123456&quot; else &quot;vpc-654321&quot;
+                        ^
+provisionVpc: (vpc: Vpc)String
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here we have a problem. The &lt;code&gt;==&lt;/code&gt; is always false, but shouldn’t it be a&lt;br /&gt;
+compiler error instead? In Scala, &lt;code&gt;==&lt;/code&gt; takes on the same semantics as&lt;br /&gt;
+the same operator in Java and thus will always compile even when you&lt;br /&gt;
+are comparing the value of a different type.&lt;/p&gt;
+
+&lt;p&gt;Thankfully in libraries like &lt;code&gt;cats&lt;/code&gt; or &lt;code&gt;scalaz&lt;/code&gt; (we will be using&lt;br /&gt;
+&lt;code&gt;cats&lt;/code&gt; in these examples) we can use a type safe equality operator&lt;br /&gt;
+like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; import cats._, cats.std.all._, cats.syntax.all._
+import cats._
+import cats.std.all._
+import cats.syntax.all._
+
+scala&amp;gt; implicit val regionEquality = new Eq[Region] {
+     |   def eqv(r1: Region, r2: Region): Boolean = r1 == r2
+     | }
+regionEquality: cats.Eq[Region] = $anon$1@40ed5a7c
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;It may not seem like we have accomplished much here except that when we use&lt;br /&gt;
+&lt;code&gt;===&lt;/code&gt; (the typesafe equality operator) our code will not compile when we&lt;br /&gt;
+check different types for equality:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; // Now reimplement provisionVpc (but this does not compile, which is what we
+     | // want!!!)
+     | def provisionVpc(vpc: Vpc): String =
+     |   if (vpc.region === &quot;us-west-1&quot;) &quot;vpc-123456&quot; else &quot;vpc-654321&quot;
+&amp;lt;console&amp;gt;:33: error: type mismatch;
+ found   : String(&quot;us-west-1&quot;)
+ required: Region
+         if (vpc.region === &quot;us-west-1&quot;) &quot;vpc-123456&quot; else &quot;vpc-654321&quot;
+                            ^
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The following will compile and is exactly what we want in our case:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; // Now reimplement provisionVpc where types on either side of === match such
+     | // that this now compiles but also the logic behaves as we expect and can
+     | // reason about.
+     | def provisionVpc(vpc: Vpc): String =
+     |   if (vpc.region === UsWest1) &quot;vpc-123456&quot; else &quot;vpc-654321&quot;
+provisionVpc: (vpc: Vpc)String
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now we could still improve the constituent types of the &lt;code&gt;Vpc&lt;/code&gt; and &lt;code&gt;Subnet&lt;/code&gt;&lt;br /&gt;
+product types further such as accepting a &lt;code&gt;Cidr&lt;/code&gt; type for the CIDR block&lt;br /&gt;
+given:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; import spire.math._, spire.implicits._
+import spire.math._
+import spire.implicits._
+
+scala&amp;gt; // Note: UByte is from spire. It is the most natural type that represents
+     | // what we want below without defining a low level type ourselves.
+     | // Let me know if I missed something from the standard library that isn&#39;t
+     | // Byte.
+     | 
+     | sealed trait IpAddress
+defined trait IpAddress
+
+scala&amp;gt; object IpAddress {
+     |   private case class Ipv4(a: UByte, b: UByte, c: UByte, d: UByte) extends IpAddress
+     |   // TODO: implement Ipv6 when needed
+     | 
+     |   def apply(a: UByte, b: UByte, c: UByte, d: UByte): IpAddress =
+     |     Ipv4(a, b, c, d)
+     | }
+defined object IpAddress
+warning: previously defined trait IpAddress is not a companion to object IpAddress.
+Companions must be defined together; you may wish to use :paste mode for this.
+
+scala&amp;gt; // We want an unsigned byte to represent the Prefix (at least for now)
+     | type Prefix = UByte
+defined type alias Prefix
+
+scala&amp;gt; def prefix(p: UByte): Option[Prefix] =
+     |   if (p &amp;lt;= UByte(32) &amp;amp;&amp;amp; p &amp;gt;= UByte(0)) Some(p) else None
+prefix: (p: spire.math.UByte)Option[Prefix]
+
+scala&amp;gt; case class Cidr(ip: IpAddress, prefix: Prefix)
+defined class Cidr
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So far we have addressed 1 through 4 of the list of problems we identified&lt;br /&gt;
+above. Let’s recap what we did:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;We encoded the notion of region as a sum type and changed the type used&lt;br /&gt;
+from &lt;code&gt;String&lt;/code&gt; to &lt;code&gt;Region&lt;/code&gt;. We have eliminated a large number of possible&lt;br /&gt;
+invalid values from being used in it’s place such that non-existent AWS&lt;br /&gt;
+regions referenced would not even compile.&lt;/li&gt;
+  &lt;li&gt;We encoded in our type signature for the &lt;code&gt;Vpc&lt;/code&gt; product type (case class)&lt;br /&gt;
+that we do not require DHCP options identifier to construct a valid &lt;code&gt;Vpc&lt;/code&gt;&lt;br /&gt;
+value. This will inform implementers of functions that use this value that&lt;br /&gt;
+this field is an optional value so they can plan accordingly.&lt;/li&gt;
+  &lt;li&gt;We encoded the notion of instance tenancy as a sum type and switched from&lt;br /&gt;
+using a &lt;code&gt;String&lt;/code&gt; to represent the possible values of it to this new type,&lt;br /&gt;
+&lt;code&gt;InstanceTenancy&lt;/code&gt;. The compiler will not catch any fat fingering we may&lt;br /&gt;
+have made. Think of the potential troubleshooting and debugging time we&lt;br /&gt;
+gained back from this simple act.&lt;/li&gt;
+  &lt;li&gt;We have encoded a more meaningful representation for CIDR values that will&lt;br /&gt;
+limit the possible values to valid basic constructions. A &lt;code&gt;String&lt;/code&gt; value&lt;br /&gt;
+gives us know structure to verify and the validation logic on a &lt;code&gt;String&lt;/code&gt;&lt;br /&gt;
+value for the CIDR case would be error prone and complex without decomposing&lt;br /&gt;
+into the structural elements of the value in the first place. Even using&lt;br /&gt;
+regular expressions to validate a &lt;code&gt;String&lt;/code&gt; representing a CIDR requires us&lt;br /&gt;
+to decompose the value into its elements (plus it might not be very&lt;br /&gt;
+efficient but that is a secondary concern). :)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Now we can tackle referential consistency of our string ids via a construct&lt;br /&gt;
+in Scala called value classes. This allows us to enforce type safety at&lt;br /&gt;
+compile-time without the runtime allocation overhead.&lt;/p&gt;
+
+&lt;p&gt;For our purposes we will wrap up &lt;code&gt;String&lt;/code&gt; identifiers designating what kind&lt;br /&gt;
+of identifier it refers to. As an example whenever we provision or query VPCs&lt;br /&gt;
+we can wrap the basic string identifier that AWS returns back as a specific&lt;br /&gt;
+type &lt;code&gt;VpcId&lt;/code&gt;. This will not allocate a boxed value but will uniquely identify&lt;br /&gt;
+the type of &lt;code&gt;String&lt;/code&gt; at compile-time.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; class VpcId (private val id: String) extends AnyVal
+defined class VpcId
+
+scala&amp;gt; class DhcpOptionsId private (val id: String) extends AnyVal
+defined class DhcpOptionsId
+
+scala&amp;gt; case class Vpc(
+     |   cidrBlock: String,
+     |   region: Region,
+     |   dhcpOptionsId: Option[DhcpOptionsId],
+     |   instanceTenancy: InstanceTenancy,
+     |   isDefault: Boolean)
+defined class Vpc
+
+scala&amp;gt; case class Subnet(
+     |   cidrBlock: String,
+     |   vpcId: VpcId,
+     |   availabilityZone: AvailabilityZone,
+     |   defaultForAz: Boolean,
+     |   mapPublicOnLaunch: Boolean)
+defined class Subnet
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We also need to make sure the functions provisioning or querying and returning&lt;br /&gt;
+these identifiers return the appropriate wrapper values.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; // Note we are returning VpcId not String any more
+     | def provisionVpc(vpc: Vpc): VpcId = ???
+provisionVpc: (vpc: Vpc)VpcId
+
+scala&amp;gt; def defaultDhcpOptions(region: Region): DhcpOptionsId = ???
+defaultDhcpOptions: (region: Region)DhcpOptionsId
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now we will be able to see from the type signature something is amiss if we&lt;br /&gt;
+are returning a &lt;code&gt;VpcId&lt;/code&gt; from a function named &lt;code&gt;defaultDhcpOptions&lt;/code&gt;. Obviously&lt;br /&gt;
+that isn’t the level of sanity checking we are aiming for, but it’s a reason-&lt;br /&gt;
+able start for this session.&lt;/p&gt;
+
+&lt;p&gt;You’ll note that we haven’t addressed the problem (yet) that we can simply&lt;br /&gt;
+construct invalid &lt;code&gt;VpcId&lt;/code&gt; values by passing in illegal format of &lt;code&gt;String&lt;/code&gt;&lt;br /&gt;
+value to the value class constructor. This will be addressed by a couple of&lt;br /&gt;
+different techniques in future tutorials. Just know that we will be returning&lt;br /&gt;
+to this. Promise. :)&lt;/p&gt;
+
+&lt;p&gt;We could also replace the type alias for &lt;code&gt;Prefix&lt;/code&gt; with a value class:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; class Prefix (val b: Byte) extends AnyVal
+defined class Prefix
+
+scala&amp;gt; object Prefix {
+     |   private def isValid(b: UByte): Boolean =
+     |     (b &amp;lt;= UByte(32) &amp;amp;&amp;amp; b &amp;gt;= UByte(0))
+     | 
+     |   def apply(b: UByte): Option[Prefix] =
+     |     if (isValid(b)) Some(new Prefix(b.toByte)) else None
+     | }
+defined object Prefix
+warning: previously defined class Prefix is not a companion to object Prefix.
+Companions must be defined together; you may wish to use :paste mode for this.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The purpose of this initial tutorial was to introduce the reader to the&lt;br /&gt;
+utility of types generally and specifically how to start to make your APIs&lt;br /&gt;
+more type safe in Scala using non-structural techniques.&lt;/p&gt;
+
+&lt;p&gt;Hopefully we can take away a sense of purpose in types. They don’t have to be&lt;br /&gt;
+source code annotations that just add more code bloat, they can add&lt;br /&gt;
+enormous &lt;em&gt;value&lt;/em&gt; (yes, I couldn’t resist the pun). You might also have noted&lt;br /&gt;
+that we have gone quite far with types, yet we can still do more to limit&lt;br /&gt;
+the values we construt in our code to be only valid ones. How far can we take&lt;br /&gt;
+this? How far makes sense? Keep these questions in mind.&lt;/p&gt;
+
+&lt;p&gt;The next tutorial in the series will walk through how we add some structure&lt;br /&gt;
+to our types with accompanying functions with specific properties we can&lt;br /&gt;
+use to reason about our code in more abstract ways.&lt;/p&gt;
+</description>
+      </item>
+    
+
+  </channel>
+</rss>
