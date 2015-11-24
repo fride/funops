@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width initial-scale=1">
 
-  <title>Extending Syntax in Scala and Idris</title>
+  <title>Extending Syntax in Scala</title>
   <meta name="description" content="Yesterday I learned something really cool. In Idris I can just do thisto extend the syntax:">
 
   <link rel="stylesheet" href="/public/css/main.css">
@@ -65,7 +65,7 @@
       <div class="wrapper">
         <article class="single row gutters">
   <time class="published" datetime="2015-11-05">05 November 2015</time>
-  <h2>Extending Syntax in Scala and Idris</h2>
+  <h2>Extending Syntax in Scala</h2>
 
   <p>Yesterday I learned something really cool. In Idris I can just do this<br />
 to extend the syntax:</p>
@@ -197,21 +197,15 @@ be inferred not <code>Just[A]</code> or <code>Nowt[A]</code>).</p>
 <p>If we had not added these value constructors or not used them we<br />
 would have this problem on our hands:</p>
 
-<pre><code class="language-scala">scala&gt; object Main extends App {
-     |   import Maybe._
-     | 
-     |   val mint1 = Just(30)
-     |   val mint2 = Nowt[Int]
-     | 
-     |   println(mint1 ? 60)
-     |   println(mint2 ? 60)
-     | }
-defined object Main
+<pre><code class="language-scala">scala&gt;   val mint1 = Just(30)
+mint1: Just[Int] = Just(30)
 
-scala&gt; Main.main(Array.empty[String])
-30
-60
+scala&gt;   val mint2 = Nowt[Int]
+mint2: Nowt[Int] = Nowt()
 </code></pre>
+
+<p>Look at the types inferred by Scala. In some scenarios, this might<br />
+give you problems.</p>
 
 <h2 id="review">Review</h2>
 

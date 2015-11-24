@@ -6,12 +6,12 @@
     <atom:link href="http://typedops.github.io/feed.xml" rel="self" type="application/rss+xml" />
     <description>Tutorials and code experiments about using types to build better infrastructure</description>
     <language>en-us</language>
-    <pubDate>Tue, 24 Nov 2015 16:27:25 -0600</pubDate>
-    <lastBuildDate>Tue, 24 Nov 2015 16:27:25 -0600</lastBuildDate>
+    <pubDate>Tue, 24 Nov 2015 16:31:12 -0600</pubDate>
+    <lastBuildDate>Tue, 24 Nov 2015 16:31:12 -0600</lastBuildDate>
 
     
       <item>
-        <title>Extending Syntax in Scala and Idris</title>
+        <title>Extending Syntax in Scala</title>
         <link>http://typedops.github.io/tutorials/2015/11/05/extending-syntax.html</link>
         <pubDate>Thu, 05 Nov 2015 13:29:00 -0600</pubDate>
         <author>Susan Potter</author>
@@ -145,21 +145,15 @@ be inferred not &lt;code&gt;Just[A]&lt;/code&gt; or &lt;code&gt;Nowt[A]&lt;/code
 &lt;p&gt;If we had not added these value constructors or not used them we&lt;br /&gt;
 would have this problem on our hands:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; object Main extends App {
-     |   import Maybe._
-     | 
-     |   val mint1 = Just(30)
-     |   val mint2 = Nowt[Int]
-     | 
-     |   println(mint1 ? 60)
-     |   println(mint2 ? 60)
-     | }
-defined object Main
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt;   val mint1 = Just(30)
+mint1: Just[Int] = Just(30)
 
-scala&amp;gt; Main.main(Array.empty[String])
-30
-60
+scala&amp;gt;   val mint2 = Nowt[Int]
+mint2: Nowt[Int] = Nowt()
 &lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Look at the types inferred by Scala. In some scenarios, this might&lt;br /&gt;
+give you problems.&lt;/p&gt;
 
 &lt;h2 id=&quot;review&quot;&gt;Review&lt;/h2&gt;
 
@@ -348,7 +342,7 @@ import cats.syntax.all._
 scala&amp;gt; implicit val regionEquality = new Eq[Region] {
      |   def eqv(r1: Region, r2: Region): Boolean = r1 == r2
      | }
-regionEquality: cats.Eq[Region] = $anon$1@14e5ac8d
+regionEquality: cats.Eq[Region] = $anon$1@6e53400f
 &lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;It may not seem like we have accomplished much here except that when we use&lt;br /&gt;
