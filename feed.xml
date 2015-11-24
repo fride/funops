@@ -6,8 +6,8 @@
     <atom:link href="http://typedops.github.io/feed.xml" rel="self" type="application/rss+xml" />
     <description>Tutorials and code experiments about using types to build better infrastructure</description>
     <language>en-us</language>
-    <pubDate>Tue, 24 Nov 2015 15:49:30 -0600</pubDate>
-    <lastBuildDate>Tue, 24 Nov 2015 15:49:30 -0600</lastBuildDate>
+    <pubDate>Tue, 24 Nov 2015 16:27:25 -0600</pubDate>
+    <lastBuildDate>Tue, 24 Nov 2015 16:27:25 -0600</lastBuildDate>
 
     
       <item>
@@ -35,6 +35,8 @@ idris&amp;gt; Nothing ? 77
 
 &lt;p&gt;&lt;em&gt;Hint: It might be a little more work, but doable.&lt;/em&gt;&lt;/p&gt;
 
+&lt;h2 id=&quot;setup&quot;&gt;Setup&lt;/h2&gt;
+
 &lt;p&gt;We will start out defining the sum type &lt;code&gt;Maybe&lt;/code&gt; with data constructors &lt;code&gt;Nowt&lt;/code&gt;&lt;br /&gt;
 (same as &lt;code&gt;Nothing&lt;/code&gt; in Idris) and &lt;code&gt;Just&lt;/code&gt; which wraps an underlying &lt;code&gt;A&lt;/code&gt; value.&lt;/p&gt;
 
@@ -48,7 +50,7 @@ scala&amp;gt; case class Nowt[A]() extends Maybe[A]
 defined class Nowt
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;p&gt;Now we just have to define the &lt;code&gt;toMaybe[A]&lt;/code&gt; decorator. We can do this in the&lt;br /&gt;
+&lt;p&gt;Now we just have to define the &lt;code&gt;fromMaybe[A]&lt;/code&gt; decorator. We can do this in the&lt;br /&gt;
 companion object:&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; object Maybe {
@@ -63,8 +65,9 @@ Companions must be defined together; you may wish to use :paste mode for this.
 &lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;Now we have what was already provided by Idris in the Prelude, therefore so&lt;br /&gt;
-far we have just been setting up our Scala code to mimick what we had in Idris.&lt;br /&gt;
-(Note: we could have also used &lt;code&gt;Option[A]&lt;/code&gt; and related &lt;code&gt;getOrElse&lt;/code&gt; method.&lt;/p&gt;
+far, we have been setting up our Scala code to mimick what we had in Idris.&lt;br /&gt;
+(Note: we could have also used &lt;code&gt;Option[A]&lt;/code&gt; and related &lt;code&gt;getOrElse&lt;/code&gt; method&lt;br /&gt;
+instead of the above).&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; object Maybe { self =&amp;gt; /* Note: newly added reference to outer object */
      |   def fromMaybe[A](a: A)(ma: Maybe[A]): A = ma match {
@@ -87,7 +90,7 @@ warning: previously defined class Maybe is not a companion to object Maybe.
 Companions must be defined together; you may wish to use :paste mode for this.
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;p&gt;Now let’s test we can use this the way we want:&lt;/p&gt;
+&lt;p&gt;Now we can test that we can use the new syntax (&lt;code&gt;?&lt;/code&gt; operator) the way we want:&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; object Main extends App {
      |   import Maybe._
@@ -108,7 +111,7 @@ scala&amp;gt; Main.main(Array.empty[String])
 &lt;p&gt;We added decoration method &lt;code&gt;?&lt;/code&gt; to &lt;code&gt;Maybe[A]&lt;/code&gt; values by importing the companion&lt;br /&gt;
 object implicit value class &lt;code&gt;MaybeOps[A]&lt;/code&gt; definition into scope.&lt;/p&gt;
 
-&lt;p&gt;In reality we only needed to add the following code to &lt;em&gt;provide&lt;/em&gt; the syntax&lt;br /&gt;
+&lt;p&gt;To recap we only need to add the following code to &lt;em&gt;provide&lt;/em&gt; the syntax&lt;br /&gt;
 within the companion object:&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;  implicit class MaybeOps[A](val ma: Maybe[A]) extends AnyVal {
@@ -122,6 +125,50 @@ content into scope like so:&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;  import Maybe._
 &lt;/code&gt;&lt;/pre&gt;
 
+&lt;p&gt;For bonus points, we added a couple of smart value constructors in the&lt;br /&gt;
+companion object:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt;   def apply[A](a: A): Maybe[A] = if (a == null) Nowt() else Just(a)
+apply: [A](a: A)Maybe[A]
+
+scala&amp;gt;   def nowt[A]: Maybe[A] = Nowt()
+nowt: [A]=&amp;gt; Maybe[A]
+
+scala&amp;gt;   def just[A](a: A) = Maybe(a)
+just: [A](a: A)Maybe[A]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This makes consuming code for constructing &lt;code&gt;Maybe[A]&lt;/code&gt; values simpler&lt;br /&gt;
+with appropriate type inference (i.e. we want &lt;code&gt;Maybe[A]&lt;/code&gt; to always&lt;br /&gt;
+be inferred not &lt;code&gt;Just[A]&lt;/code&gt; or &lt;code&gt;Nowt[A]&lt;/code&gt;).&lt;/p&gt;
+
+&lt;p&gt;If we had not added these value constructors or not used them we&lt;br /&gt;
+would have this problem on our hands:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-scala&quot;&gt;scala&amp;gt; object Main extends App {
+     |   import Maybe._
+     | 
+     |   val mint1 = Just(30)
+     |   val mint2 = Nowt[Int]
+     | 
+     |   println(mint1 ? 60)
+     |   println(mint2 ? 60)
+     | }
+defined object Main
+
+scala&amp;gt; Main.main(Array.empty[String])
+30
+60
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&quot;review&quot;&gt;Review&lt;/h2&gt;
+
+&lt;p&gt;Scala provides a way to extend syntax in a few different ways. Above we&lt;br /&gt;
+showed one way where we can still uphold the level of typesafety that our API&lt;br /&gt;
+requires yet still offer some level of syntax/operator decoration or addition.&lt;/p&gt;
+
+&lt;p&gt;How could you effectively enhance your operations management libraries with&lt;br /&gt;
+the technique outlined above?&lt;/p&gt;
 </description>
       </item>
     
@@ -301,7 +348,7 @@ import cats.syntax.all._
 scala&amp;gt; implicit val regionEquality = new Eq[Region] {
      |   def eqv(r1: Region, r2: Region): Boolean = r1 == r2
      | }
-regionEquality: cats.Eq[Region] = $anon$1@3fa42dc2
+regionEquality: cats.Eq[Region] = $anon$1@14e5ac8d
 &lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;It may not seem like we have accomplished much here except that when we use&lt;br /&gt;

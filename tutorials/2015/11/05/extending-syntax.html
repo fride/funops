@@ -87,6 +87,8 @@ idris&gt; Nothing ? 77
 
 <p><em>Hint: It might be a little more work, but doable.</em></p>
 
+<h2 id="setup">Setup</h2>
+
 <p>We will start out defining the sum type <code>Maybe</code> with data constructors <code>Nowt</code><br />
 (same as <code>Nothing</code> in Idris) and <code>Just</code> which wraps an underlying <code>A</code> value.</p>
 
@@ -100,7 +102,7 @@ scala&gt; case class Nowt[A]() extends Maybe[A]
 defined class Nowt
 </code></pre>
 
-<p>Now we just have to define the <code>toMaybe[A]</code> decorator. We can do this in the<br />
+<p>Now we just have to define the <code>fromMaybe[A]</code> decorator. We can do this in the<br />
 companion object:</p>
 
 <pre><code class="language-scala">scala&gt; object Maybe {
@@ -115,8 +117,9 @@ Companions must be defined together; you may wish to use :paste mode for this.
 </code></pre>
 
 <p>Now we have what was already provided by Idris in the Prelude, therefore so<br />
-far we have just been setting up our Scala code to mimick what we had in Idris.<br />
-(Note: we could have also used <code>Option[A]</code> and related <code>getOrElse</code> method.</p>
+far, we have been setting up our Scala code to mimick what we had in Idris.<br />
+(Note: we could have also used <code>Option[A]</code> and related <code>getOrElse</code> method<br />
+instead of the above).</p>
 
 <pre><code class="language-scala">scala&gt; object Maybe { self =&gt; /* Note: newly added reference to outer object */
      |   def fromMaybe[A](a: A)(ma: Maybe[A]): A = ma match {
@@ -139,7 +142,7 @@ warning: previously defined class Maybe is not a companion to object Maybe.
 Companions must be defined together; you may wish to use :paste mode for this.
 </code></pre>
 
-<p>Now let’s test we can use this the way we want:</p>
+<p>Now we can test that we can use the new syntax (<code>?</code> operator) the way we want:</p>
 
 <pre><code class="language-scala">scala&gt; object Main extends App {
      |   import Maybe._
@@ -160,7 +163,7 @@ scala&gt; Main.main(Array.empty[String])
 <p>We added decoration method <code>?</code> to <code>Maybe[A]</code> values by importing the companion<br />
 object implicit value class <code>MaybeOps[A]</code> definition into scope.</p>
 
-<p>In reality we only needed to add the following code to <em>provide</em> the syntax<br />
+<p>To recap we only need to add the following code to <em>provide</em> the syntax<br />
 within the companion object:</p>
 
 <pre><code class="language-scala">  implicit class MaybeOps[A](val ma: Maybe[A]) extends AnyVal {
@@ -174,6 +177,50 @@ content into scope like so:</p>
 <pre><code class="language-scala">  import Maybe._
 </code></pre>
 
+<p>For bonus points, we added a couple of smart value constructors in the<br />
+companion object:</p>
+
+<pre><code class="language-scala">scala&gt;   def apply[A](a: A): Maybe[A] = if (a == null) Nowt() else Just(a)
+apply: [A](a: A)Maybe[A]
+
+scala&gt;   def nowt[A]: Maybe[A] = Nowt()
+nowt: [A]=&gt; Maybe[A]
+
+scala&gt;   def just[A](a: A) = Maybe(a)
+just: [A](a: A)Maybe[A]
+</code></pre>
+
+<p>This makes consuming code for constructing <code>Maybe[A]</code> values simpler<br />
+with appropriate type inference (i.e. we want <code>Maybe[A]</code> to always<br />
+be inferred not <code>Just[A]</code> or <code>Nowt[A]</code>).</p>
+
+<p>If we had not added these value constructors or not used them we<br />
+would have this problem on our hands:</p>
+
+<pre><code class="language-scala">scala&gt; object Main extends App {
+     |   import Maybe._
+     | 
+     |   val mint1 = Just(30)
+     |   val mint2 = Nowt[Int]
+     | 
+     |   println(mint1 ? 60)
+     |   println(mint2 ? 60)
+     | }
+defined object Main
+
+scala&gt; Main.main(Array.empty[String])
+30
+60
+</code></pre>
+
+<h2 id="review">Review</h2>
+
+<p>Scala provides a way to extend syntax in a few different ways. Above we<br />
+showed one way where we can still uphold the level of typesafety that our API<br />
+requires yet still offer some level of syntax/operator decoration or addition.</p>
+
+<p>How could you effectively enhance your operations management libraries with<br />
+the technique outlined above?</p>
 
 </article>
 
